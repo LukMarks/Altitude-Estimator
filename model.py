@@ -53,6 +53,7 @@ class FlightModel:
         self.c = self.aircraft.get("chord", 0)
         self.m = self.aircraft.get("mass", 0)
         self.Cl = self.aircraft.get("CL", 0)
+        self.alpha = self.aircraft.get("AoA", 0)
         self.Ix = self.aircraft.get("Inertia", [[0]])[0][0]
         self.Iy = self.aircraft.get("Inertia", [[0]])[1][1]
         self.Izx = self.aircraft.get("Inertia", [[0]])[2][0]
