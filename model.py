@@ -14,26 +14,28 @@ class FlightModel:
     def altitude_model(self) -> float:
         pass
 
-    def _differential_model(self, state) -> np.array(float):
+    def _differential_model(self, state, t) -> np.array(float):
         """
             Differentical equations for flight dynamics
             with the following state vector
-            [u, w, q, phi, theta, h]
+            [u, w, q, h]
         """
 
-        u_dot = state[2]*state[1] - self.g*np.sin(state[4]) + self.pd(state[0], state[1])*self.S*self.cx/self.m
+        V = np.sqrt(state[1]*2 + state[0]**2)
 
-        w_dot = state[2]*state[0] + self.g*np.cos(state[4])*np.sin(state[3]) + self.pd(state[0], state[1])*self.S*self.cz/self.m
+        pd = 0.5 * V * self.p
 
-        q_dot = (M + self.Izx*self.r**2)/self.Iy
+        M = 0.5 * self.p * self.S * self.c * self.Cm * V**2
 
-        phi_dot = state[2]*np.sin(state[3])*np.tan(state[4])+ self.r*np.sin(state[3])*np.tan(state[4])
+        u_dot = state[2]*state[1] - self.g*np.sin(state[2]) + pd*self.S*self.cx/self.m
 
-        theta_dot = state[2]*np.cos(state[3]) - self.r*np.sin(state[3])
+        w_dot = state[2]*state[0] + pd*self.S*self.cz/self.m
 
-        h_dot = state[0]*np.sin(state[4]) - state[1]*np.cos(state[3])*np.sin(state[4])
+        q_dot = (self._momentum(state[0], state[1]) + self.Izx*self.r**2)/self.Iy
 
-        return u_dot, w_dot, q_dot, phi_dot, theta_dot, h_dot
+        h_dot = state[0]*np.sin(state[2]) - state[1]*np.sin(state[2])
+
+        return u_dot, w_dot, q_dot, h_dot
 
     
     def _pd(self, u, w):
@@ -41,6 +43,11 @@ class FlightModel:
         Dynamic pressure
         """
         return 0.5 * np.sqrt(u**2 + w**2) * self.p
+
+    def _momentum(self, u, w):
+        v = np.sqrt(u**2 + w**2)
+        return 0.5 * self.p * self.S * self.c * self.Cm * v**2
+
 
     def set_aerodynamics_coefficient(self):
         
@@ -53,6 +60,7 @@ class FlightModel:
         self.c = self.aircraft.get("chord", 0)
         self.m = self.aircraft.get("mass", 0)
         self.Cl = self.aircraft.get("CL", 0)
+        self.Cm = self.aircraft.get("CM", 0)
         self.alpha = self.aircraft.get("AoA", 0)
         self.Ix = self.aircraft.get("Inertia", [[0]])[0][0]
         self.Iy = self.aircraft.get("Inertia", [[0]])[1][1]
