@@ -10,7 +10,7 @@ class FlightModel:
     def __init__(self, aircraft: dict, environment: dict) -> None:
         self.aircraft = aircraft
         self.environment = environment
-        self.r = 0
+
     def altitude_model(self) -> float:
         pass
 
@@ -21,9 +21,9 @@ class FlightModel:
             [u, w, q, h]
         """
 
-        V = np.sqrt(state[1]*2 + state[0]**2)
+        V = np.sqrt(state[1]**2 + state[0]**2)
 
-        pd = 0.5 * V * self.p
+        pd = 0.5 * V**2 * self.p
 
         M = 0.5 * self.p * self.S * self.c * self.Cm * V**2
 
@@ -31,7 +31,7 @@ class FlightModel:
 
         w_dot = state[2]*state[0] + pd*self.S*self.cz/self.m
 
-        q_dot = (self._momentum(state[0], state[1]) + self.Izx*self.r**2)/self.Iy
+        q_dot = M /self.Iy
 
         h_dot = state[0]*np.sin(state[2]) - state[1]*np.sin(state[2])
 
@@ -52,14 +52,15 @@ class FlightModel:
     def set_aerodynamics_coefficient(self):
         
         self.Ct = 0
-        self.cx = self.Cl*np.sin(self.alpha) + self.Ct
-        self.cz = -self.Cl*np.cos(self.alpha)
+        self.cx = self.Cl*np.sin(self.alpha) - self.Cd*np.cos(self.alpha) + self.Ct
+        self.cz = -self.Cl*np.cos(self.alpha) - self.Cd*np.sin(self.alpha)
 
     def set_aircfrat_coefficient(self):
         self.S = self.aircraft.get("wing area", 0)
         self.c = self.aircraft.get("chord", 0)
         self.m = self.aircraft.get("mass", 0)
         self.Cl = self.aircraft.get("CL", 0)
+        self.Cd = 0.001625*self.Cl**3 + 0.30061*self.Cl**2 + 0.007446*self.Cl #self.aircraft.get("CD", 0)
         self.Cm = self.aircraft.get("CM", 0)
         self.alpha = self.aircraft.get("AoA", 0)
         self.Ix = self.aircraft.get("Inertia", [[0]])[0][0]
