@@ -33,7 +33,7 @@ class FlightModel:
 
         q_dot = M /self.Iy
 
-        h_dot = state[0]*np.sin(state[2]) - state[1]*np.sin(state[2])
+        h_dot = state[0]*np.sin(state[2]) - state[1]*np.cos(state[2])
 
         return u_dot, w_dot, q_dot, h_dot
 
@@ -48,6 +48,21 @@ class FlightModel:
         v = np.sqrt(u**2 + w**2)
         return 0.5 * self.p * self.S * self.c * self.Cm * v**2
 
+    def _linearized_model(self, state, t) -> np.array(float):
+        """
+            Differentical equations for flight dynamics
+            with the following state vector
+            [u, w, q, h]
+        """
+        self.A = np.array([
+                          [state[0]*self.p*self.cx/self.m, state[2] + state[1]*self.p*self.cx/self.m, -self.g*np.cos(state[2])+state[1], 0],
+                          [state[2] + state[0]*self.p*self.cz/self.m, state[1]*self.p*self.cz/self.m, state[0], 0],
+                          [state[0]*self.p*self.S*self.Cm*self.c/self.Iy, state[1]*self.p*self.S*self.Cm*self.c/self.Iy, 0, 0],
+                          [np.sin(state[2]), -np.cos(state[2]), state[0]*np.cos(state[2]) + state[1]*np.sin(state[2]), 0]
+                          ])
+
+        x = np.matmul(self.A, state)
+        return x
 
     def set_aerodynamics_coefficient(self):
         
