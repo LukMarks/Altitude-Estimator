@@ -11,8 +11,11 @@ class FlightModel:
         self.aircraft = aircraft
         self.environment = environment
 
-    def altitude_model(self) -> float:
-        pass
+    def altitude_model(self, state, altitude_ref, time_step) -> float:
+        h_dot = state[0]*np.sin(state[2]) - state[1]*np.cos(state[2])
+        altitude = altitude_ref + h_dot * time_step
+        return altitude
+        
 
     def _differential_model(self, state, t) -> np.array(float):
         """
@@ -21,22 +24,15 @@ class FlightModel:
             [u, w, q, h]
         """
 
-        V = np.sqrt(state[1]**2 + state[0]**2)
+        u_dot = state[2]*state[1] - self.g*np.sin(state[2]) + self.S*self.cx*0.5 * (state[1]**2 + state[0]**2) * self.p/self.m
 
-        pd = 0.5 * V**2 * self.p
+        w_dot = state[2]*state[0] + self.g*np.cos(state[2]) + self.S*self.cz*0.5 * (state[1]**2 + state[0]**2) * self.p/self.m
 
-        M = 0.5 * self.p * self.S * self.c * self.Cm * V**2
+        q_dot = (0.5 * self.p * self.S * self.c * self.Cm * (state[1]**2 + state[0]**2)) /self.Iy
 
-        u_dot = state[2]*state[1] - self.g*np.sin(state[2]) + pd*self.S*self.cx/self.m
+        #h_dot = state[0]*np.sin(state[2]) - state[1]*np.cos(state[2])
 
-        w_dot = state[2]*state[0] + pd*self.S*self.cz/self.m
-
-        q_dot = M /self.Iy
-
-        h_dot = state[0]*np.sin(state[2]) - state[1]*np.cos(state[2])
-
-        return u_dot, w_dot, q_dot, h_dot
-
+        return u_dot, w_dot, q_dot#, h_dot
     
     def _pd(self, u, w):
         """
@@ -54,16 +50,23 @@ class FlightModel:
             with the following state vector
             [u, w, q, h]
         """
-        self.A = np.array([
-                          [state[0]*self.p*self.cx/self.m, state[2] + state[1]*self.p*self.cx/self.m, -self.g*np.cos(state[2])+state[1], 0],
-                          [state[2] + state[0]*self.p*self.cz/self.m, state[1]*self.p*self.cz/self.m, state[0], 0],
-                          [state[0]*self.p*self.S*self.Cm*self.c/self.Iy, state[1]*self.p*self.S*self.Cm*self.c/self.Iy, 0, 0],
-                          [np.sin(state[2]), -np.cos(state[2]), state[0]*np.cos(state[2]) + state[1]*np.sin(state[2]), 0]
+        A = np.array([
+                          [state[0]*self.p*self.cx/self.m, state[2] + state[1]*self.p*self.cz/self.m, -self.g*np.cos(state[2])+state[1]],
+                          [state[2] + state[0]*self.p*self.cx/self.m, state[1]*self.p*self.cz/self.m,  -self.g*np.sin(state[2])+state[0]],
+                          [state[0]*self.p*self.S*self.Cm*self.c/self.Iy, state[1]*self.p*self.S*self.Cm*self.c/self.Iy, 0],
                           ])
 
-        x = np.matmul(self.A, state)
+        x = np.matmul(A, state)
         return x
 
+    def A_matrix(self, state):
+        A = np.array([
+                          [state[0]*self.p*self.cx/self.m, state[2] + state[1]*self.p*self.cz/self.m, -self.g*np.cos(state[2])+state[1]],
+                          [state[2] + state[0]*self.p*self.cx/self.m, state[1]*self.p*self.cz/self.m,  -self.g*np.sin(state[2])+state[0]],
+                          [state[0]*self.p*self.S*self.Cm*self.c/self.Iy, state[1]*self.p*self.S*self.Cm*self.c/self.Iy, 0],
+                          ])
+        return A
+        
     def set_aerodynamics_coefficient(self):
         
         self.Ct = 0
@@ -75,7 +78,7 @@ class FlightModel:
         self.c = self.aircraft.get("chord", 0)
         self.m = self.aircraft.get("mass", 0)
         self.Cl = self.aircraft.get("CL", 0)
-        self.Cd = 0.001625*self.Cl**3 + 0.30061*self.Cl**2 + 0.007446*self.Cl #self.aircraft.get("CD", 0)
+        self.Cd = 0.001625*self.Cl**3 + 0.30061*self.Cl**2 + 0.007446*self.Cl
         self.Cm = self.aircraft.get("CM", 0)
         self.alpha = self.aircraft.get("AoA", 0)
         self.Ix = self.aircraft.get("Inertia", [[0]])[0][0]
